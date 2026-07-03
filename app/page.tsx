@@ -4,6 +4,7 @@ import {
   getRegistrosByUser,
   getModalidadesByUser,
   findUserById,
+  getFcmToken,
   type RegistroTipo,
 } from "@/lib/data";
 import { PontoFlow, ModalidadeFlow } from "@/app/registro-flow";
@@ -48,6 +49,7 @@ export default async function Home() {
   const dbUser = user?.id ? await findUserById(user.id) : undefined;
   const registros = user?.id ? await getRegistrosByUser(user.id) : [];
   const modalidades = user?.id ? await getModalidadesByUser(user.id) : [];
+  const notificationsEnabled = user?.id ? !!(await getFcmToken(user.id)) : false;
 
   // Apenas os registros de hoje.
   const hoje = new Date();
@@ -59,14 +61,15 @@ export default async function Home() {
   const modalidadeHoje = modalidades.find((m) => m.dia === hojeKey);
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col bg-background md:my-8 md:rounded-3xl md:border md:border-black/10 md:shadow-xl md:dark:border-white/15">
       <ProfileHeader
         name={dbUser?.name ?? user?.name}
         imageUrl={dbUser?.image}
+        notificationsEnabled={notificationsEnabled}
       />
 
       {/* Section sobe por cima da foto, com cantos bem arredondados */}
-      <div className="relative z-10 -mt-8 flex flex-1 flex-col gap-6 rounded-t-4xl bg-background px-6 pb-6 pt-7">
+      <div className="relative z-10 -mt-8 flex flex-1 flex-col gap-6 rounded-t-4xl bg-background px-6 pb-6 pt-7 md:rounded-b-3xl">
         <div>
           <p className="text-sm opacity-60">Olá,</p>
           <p className="text-2xl font-semibold leading-tight">

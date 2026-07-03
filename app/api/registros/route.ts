@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import {
   addRegistro,
   addRegistroAt,
+  updateRegistro,
+  deleteRegistro,
   getRegistrosByUser,
   getModalidadeForDay,
   type RegistroTipo,
@@ -78,4 +80,74 @@ export async function POST(request: Request) {
 
   const registro = await addRegistro(userId, tipo);
   return NextResponse.json({ registro }, { status: 201 });
+}
+
+// PATCH /api/registros  (somente admin)
+//   body: { id, tipo?, timestamp? } — edita um registro existente.
+export async function PATCH(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+  if (session.user.role !== "admin") {
+    return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const id = body?.id ? String(body.id) : null;
+  if (!id) {
+    return NextResponse.json({ error: "id é obrigatório." }, { status: 400 });
+  }
+
+  const tipo = body?.tipo as RegistroTipo | undefined;
+  if (tipo && !TIPOS.includes(tipo)) {
+    return NextResponse.json(
+      { error: "tipo deve ser 'in' ou 'out'." },
+      { status: 400 }
+    );
+  }
+
+  let timestamp: string | undefined;
+  if (body?.timestamp) {
+    const when = new Date(body.timestamp);
+    if (Number.isNaN(when.getTime())) {
+      return NextResponse.json({ error: "timestamp inválido." }, { status: 400 });
+    }
+    timestamp = when.toISOString();
+  }
+
+  if (!tipo && !timestamp) {
+    return NextResponse.json(
+      { error: "Informe tipo e/ou timestamp." },
+      { status: 400 }
+    );
+  }
+
+  const registro = await updateRegistro(id, { tipo, timestamp });
+  if (!registro) {
+    return NextResponse.json(
+      { error: "Registro não encontrado." },
+      { status: 404 }
+    );
+  }
+  return NextResponse.json({ registro });
+}
+
+// DELETE /api/registros?id=X  (somente admin)
+export async function DELETE(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+  if (session.user.role !== "admin") {
+    return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+  }
+
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "id é obrigatório." }, { status: 400 });
+  }
+
+  await deleteRegistro(id);
+  return NextResponse.json({ ok: true });
 }

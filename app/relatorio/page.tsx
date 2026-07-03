@@ -82,7 +82,7 @@ export default async function Relatorio() {
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6 md:py-8">
       <header>
         <h1 className="text-xl font-semibold leading-tight">Relatório</h1>
         <p className="text-sm capitalize opacity-60">{monthTitle}</p>

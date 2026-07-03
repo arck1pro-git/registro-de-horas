@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
     "192.168.3.*",
     "192.168.56.*",
   ],
+  // exceljs usa APIs de Node; não empacotar no bundle de Server Components.
+  serverExternalPackages: ["exceljs"],
 };
 
 export default nextConfig;

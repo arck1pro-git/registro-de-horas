@@ -102,7 +102,7 @@ export function HoursCalendar({
         </span>
       </div>
 
-      <div className="rounded-2xl border border-black/10 p-3 dark:border-white/15">
+      <div className="rounded-2xl border border-black/10 bg-background p-3 dark:border-white/15">
         <div className="mb-1 grid grid-cols-7">
           {WEEKDAYS.map((w, i) => (
             <div

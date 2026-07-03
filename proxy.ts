@@ -5,6 +5,7 @@ import { authConfig } from "./auth.config";
 export default NextAuth(authConfig).auth;
 
 export const config = {
-  // Protege todas as rotas exceto assets, api de auth e arquivos estáticos.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Protege todas as rotas exceto a API e arquivos estáticos (qualquer caminho
+  // com extensão: .js do service worker, .webmanifest, ícones .png, etc.).
+  matcher: ["/((?!api|_next|.*\\..*).*)"],
 };

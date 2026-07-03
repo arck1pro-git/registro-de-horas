@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { Shield } from "lucide-react";
+import { Shield, LogOut, Download } from "lucide-react";
 import { auth } from "@/auth";
+import { logout } from "@/app/actions";
 import {
   getFuncionarios,
   getRegistrosByUser,
@@ -9,8 +10,16 @@ import {
   type Registro,
 } from "@/lib/data";
 import { EmployeeSelect } from "./employee-select";
-import { EditDayButton } from "./edit-day-button";
-import { ExportButton, type ReportRow } from "./export-button";
+import { MonthSelect } from "./month-select";
+import { DayEditor } from "./day-editor";
+
+type Row = {
+  dateKey: string;
+  dateLabel: string;
+  minutes: number;
+  punches: { id: string; tipo: "in" | "out"; time: string }[];
+  modality: "home_office" | "presencial" | null;
+};
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -53,22 +62,39 @@ function workedMinutes(list: Registro[]) {
 export default async function Admin({
   searchParams,
 }: {
-  searchParams: Promise<{ userId?: string }>;
+  searchParams: Promise<{ userId?: string; mes?: string }>;
 }) {
   const session = await auth();
   if (session?.user?.role !== "admin") redirect("/");
 
   const funcionarios = await getFuncionarios();
-  const { userId } = await searchParams;
+  const { userId, mes } = await searchParams;
   const selectedId =
     userId && funcionarios.some((f) => f.id === userId)
       ? userId
       : funcionarios[0]?.id;
+
+  // Mês de referência (YYYY-MM); padrão = mês atual.
+  const now = new Date();
+  let year = now.getFullYear();
+  let month = now.getMonth();
+  if (mes && /^\d{4}-\d{2}$/.test(mes)) {
+    const [y, m] = mes.split("-").map(Number);
+    year = y;
+    month = m - 1;
+  }
+  const mesKey = `${year}-${pad(month + 1)}`;
+
   const funcionario = selectedId ? await findUserById(selectedId) : undefined;
-  const registros = selectedId ? await getRegistrosByUser(selectedId) : [];
-  const modalidades = selectedId
+  const allRegistros = selectedId ? await getRegistrosByUser(selectedId) : [];
+  const allModalidades = selectedId
     ? await getModalidadesByUser(selectedId)
     : [];
+  // Escopa ao mês selecionado.
+  const registros = allRegistros.filter((r) =>
+    dateKeyOf(r.timestamp).startsWith(mesKey)
+  );
+  const modalidades = allModalidades.filter((m) => m.dia.startsWith(mesKey));
 
   // Modalidade por dia (chave "YYYY-MM-DD").
   const modalityByKey = new Map<string, "home_office" | "presencial">();
@@ -85,7 +111,7 @@ export default async function Admin({
 
   // Une os dias que têm ponto e/ou modalidade.
   const allKeys = new Set<string>([...byDay.keys(), ...modalityByKey.keys()]);
-  const rows: ReportRow[] = [...allKeys]
+  const rows: Row[] = [...allKeys]
     .sort()
     .map((dateKey) => {
       const list = byDay.get(dateKey) ?? [];
@@ -99,14 +125,18 @@ export default async function Admin({
           year: "numeric",
         }),
         minutes: workedMinutes(list),
-        punches: list.map((r) => ({ tipo: r.tipo, time: fmtTime(r.timestamp) })),
+        punches: list.map((r) => ({
+          id: r.id,
+          tipo: r.tipo,
+          time: fmtTime(r.timestamp),
+        })),
         modality: modalityByKey.get(dateKey) ?? null,
       };
     });
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 p-8">
-      <header className="mb-6 flex items-center justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-foreground text-background">
             <Shield className="h-5 w-5" />
@@ -120,20 +150,47 @@ export default async function Admin({
             </p>
           </div>
         </div>
-        {funcionario && (
-          <ExportButton funcionario={funcionario.name} rows={rows} />
-        )}
+        <div className="flex items-center gap-2">
+          {funcionario && selectedId && (
+            <>
+              <DayEditor userId={selectedId} variant="header" />
+              <a
+                href={`/api/export?userId=${selectedId}&mes=${mesKey}`}
+                className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
+              >
+                <Download className="h-4 w-4" />
+                Exportar Excel
+              </a>
+            </>
+          )}
+          <form action={logout}>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-xl border border-black/10 px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-80 dark:border-white/15"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </button>
+          </form>
+        </div>
       </header>
 
-      <div className="mb-6 flex items-center gap-3">
-        <label className="text-sm font-medium opacity-70">Funcionário</label>
-        <EmployeeSelect
-          funcionarios={funcionarios.map((f) => ({ id: f.id, name: f.name }))}
-          selectedId={selectedId}
-        />
+      <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium opacity-70">Funcionário</label>
+          <EmployeeSelect
+            funcionarios={funcionarios.map((f) => ({ id: f.id, name: f.name }))}
+            selectedId={selectedId}
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium opacity-70">Mês</label>
+          <MonthSelect value={mesKey} />
+        </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/10 dark:border-white/15">
+      <div className="overflow-hidden rounded-2xl border border-black/10 bg-background dark:border-white/15">
+        <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-black/10 bg-foreground/5 text-left dark:border-white/15">
@@ -198,10 +255,11 @@ export default async function Admin({
                   </td>
                   <td className="px-4 py-3 text-right">
                     {selectedId && (
-                      <EditDayButton
+                      <DayEditor
                         userId={selectedId}
                         dateKey={row.dateKey}
                         dateLabel={row.dateLabel}
+                        punches={row.punches}
                       />
                     )}
                   </td>
@@ -210,6 +268,7 @@ export default async function Admin({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </main>
   );

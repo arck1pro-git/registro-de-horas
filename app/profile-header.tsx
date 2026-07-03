@@ -1,22 +1,121 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { EllipsisVertical, ImageUp, Trash2, LogOut } from "lucide-react";
+import {
+  EllipsisVertical,
+  ImageUp,
+  Trash2,
+  LogOut,
+  Download,
+  Bell,
+} from "lucide-react";
 import { logout } from "@/app/actions";
+
+// Evento não-tipado no lib.dom padrão; definição mínima do que usamos.
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
 
 export function ProfileHeader({
   name,
   imageUrl,
+  notificationsEnabled = false,
 }: {
   name?: string | null;
   imageUrl?: string | null;
+  notificationsEnabled?: boolean;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Notificações (push / FCM).
+  const [notifEnabled, setNotifEnabled] = useState(notificationsEnabled);
+  const [notifBusy, setNotifBusy] = useState(false);
+
+  async function toggleNotificacoes() {
+    setMenuOpen(false);
+    setError(null);
+    setNotifBusy(true);
+    try {
+      if (!notifEnabled) {
+        const { enableNotifications } = await import("@/lib/firebase-client");
+        const token = await enableNotifications();
+        const res = await fetch("/api/notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        if (!res.ok) throw new Error("Falha ao salvar o token.");
+        setNotifEnabled(true);
+      } else {
+        const { disableNotifications } = await import("@/lib/firebase-client");
+        await disableNotifications();
+        await fetch("/api/notifications", { method: "DELETE" });
+        setNotifEnabled(false);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao alterar notificações."
+      );
+    } finally {
+      setNotifBusy(false);
+    }
+  }
+
+  // Instalação do app (PWA).
+  const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(
+    null
+  );
+  const [installed, setInstalled] = useState(false);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia?.("(display-mode: standalone)").matches ||
+      (window.navigator as { standalone?: boolean }).standalone === true;
+    setInstalled(!!standalone);
+
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as BeforeInstallPromptEvent);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      setInstallEvt(null);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  const isIOS =
+    typeof navigator !== "undefined" &&
+    /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  async function instalarApp() {
+    setMenuOpen(false);
+    if (installEvt) {
+      // Android / desktop (Chrome, Edge): prompt nativo.
+      await installEvt.prompt();
+      try {
+        await installEvt.userChoice;
+      } catch {
+        // usuário fechou; sem ação
+      }
+      setInstallEvt(null);
+    } else {
+      // iOS ou navegador sem prompt automático: mostra instruções.
+      setShowInstallHelp(true);
+    }
+  }
 
   const initial = name?.trim()?.[0]?.toUpperCase() ?? "?";
 
@@ -67,7 +166,7 @@ export function ProfileHeader({
   return (
     <div className="relative">
       {/* Foto grande, full-bleed (colada no topo e nas laterais) */}
-      <div className="relative aspect-square w-full overflow-hidden bg-foreground/5">
+      <div className="relative aspect-square w-full overflow-hidden bg-foreground/5 md:rounded-t-3xl">
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -126,6 +225,34 @@ export function ProfileHeader({
                   Remover foto
                 </button>
               )}
+              <button
+                type="button"
+                onClick={toggleNotificacoes}
+                disabled={notifBusy}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-sm font-medium hover:bg-foreground/5 disabled:opacity-60"
+              >
+                <span className="flex items-center gap-3">
+                  <Bell className="h-4 w-4" />
+                  Notificações
+                </span>
+                <span
+                  className={`text-xs ${
+                    notifEnabled ? "text-emerald-600" : "opacity-50"
+                  }`}
+                >
+                  {notifBusy ? "..." : notifEnabled ? "Ativado" : "Desativado"}
+                </span>
+              </button>
+              {!installed && (
+                <button
+                  type="button"
+                  onClick={instalarApp}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-foreground/5"
+                >
+                  <Download className="h-4 w-4" />
+                  Instalar app
+                </button>
+              )}
               <div className="border-t border-black/10 dark:border-white/15" />
               <form action={logout}>
                 <button
@@ -153,6 +280,18 @@ export function ProfileHeader({
         <p className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-red-600 px-3 py-2 text-sm text-white shadow-lg">
           {error}
         </p>
+      )}
+
+      {showInstallHelp && (
+        <button
+          type="button"
+          onClick={() => setShowInstallHelp(false)}
+          className="fixed bottom-20 left-1/2 z-50 w-[90%] max-w-xs -translate-x-1/2 rounded-lg bg-foreground px-3 py-2 text-center text-sm text-background shadow-lg"
+        >
+          {isIOS
+            ? "No Safari: toque em Compartilhar e depois em “Adicionar à Tela de Início”."
+            : "Abra o menu do navegador e escolha “Instalar app” / “Adicionar à tela inicial”."}
+        </button>
       )}
     </div>
   );

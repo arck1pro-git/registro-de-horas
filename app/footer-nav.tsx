@@ -12,15 +12,15 @@ const baseItems = [
 export function FooterNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
 
-  // Não exibe o menu na tela de login.
-  if (pathname === "/login") return null;
+  // Não exibe o menu na tela de login nem no painel admin.
+  if (pathname === "/login" || pathname.startsWith("/admin")) return null;
 
   const items = isAdmin
     ? [...baseItems, { href: "/admin", label: "Admin", icon: Shield }]
     : baseItems;
 
   return (
-    <footer className="sticky bottom-0 border-t border-black/10 bg-background dark:border-white/15">
+    <footer className="sticky bottom-0 z-30 border-t border-black/10 bg-background dark:border-white/15">
       <nav className="mx-auto flex max-w-md">
         {items.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;

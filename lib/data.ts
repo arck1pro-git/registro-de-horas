@@ -82,6 +82,30 @@ export async function updateUserImage(
   ]);
 }
 
+/** Salva (ou limpa, com null) o token FCM do usuário. Um dispositivo por usuário. */
+export async function setFcmToken(
+  userId: string,
+  token: string | null
+): Promise<void> {
+  await query(`UPDATE users SET fcm_token = $2 WHERE id = $1`, [userId, token]);
+}
+
+/** Token FCM atual do usuário (null se notificações desativadas). */
+export async function getFcmToken(userId: string): Promise<string | null> {
+  try {
+    const rows = await query<{ fcm_token: string | null }>(
+      `SELECT fcm_token FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+    return rows[0]?.fcm_token ?? null;
+  } catch (err) {
+    // 42703 = coluna inexistente: o ALTER TABLE ainda não foi rodado.
+    // Não quebra a home; trata como "sem token".
+    if ((err as { code?: string })?.code === "42703") return null;
+    throw err;
+  }
+}
+
 // --- Registros de ponto ---------------------------------------------------
 
 type RegistroRow = {
@@ -131,6 +155,41 @@ export async function addRegistroAt(
     [userId, tipo, timestamp]
   );
   return toRegistro(rows[0]);
+}
+
+/**
+ * Atualiza tipo e/ou data-hora de um registro existente (edição pelo admin).
+ * Retorna undefined se o id não existir.
+ */
+export async function updateRegistro(
+  id: string,
+  fields: { tipo?: RegistroTipo; timestamp?: string }
+): Promise<Registro | undefined> {
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if (fields.tipo) {
+    params.push(fields.tipo);
+    sets.push(`tipo = $${params.length}`);
+  }
+  if (fields.timestamp) {
+    params.push(fields.timestamp);
+    sets.push(`timestamp = $${params.length}`);
+  }
+  if (sets.length === 0) return undefined;
+
+  params.push(id);
+  const rows = await query<RegistroRow>(
+    `UPDATE registros SET ${sets.join(", ")}
+      WHERE id = $${params.length}
+     RETURNING id, user_id AS "userId", tipo, timestamp`,
+    params
+  );
+  return rows[0] ? toRegistro(rows[0]) : undefined;
+}
+
+/** Remove um registro (usado pelo admin). */
+export async function deleteRegistro(id: string): Promise<void> {
+  await query(`DELETE FROM registros WHERE id = $1`, [id]);
 }
 
 // --- Modalidade por dia ---------------------------------------------------

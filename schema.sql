@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS users (
   image_url TEXT
 );
 
+-- Token FCM (push) do funcionário — um dispositivo por usuário. NULL = notificações
+-- desativadas. O envio é feito externamente (n8n) lendo esta coluna.
+-- Via ALTER (idempotente) para atualizar bancos já existentes.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+
 -- ---------------------------------------------------------------------------
 -- Registros de ponto: cada entrada/saída é uma linha com data-hora.
 -- ---------------------------------------------------------------------------

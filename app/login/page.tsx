@@ -12,7 +12,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex flex-1 flex-col justify-center px-6 py-10">
-      <div className="mx-auto w-full max-w-sm">
+      <div className="mx-auto w-full max-w-sm md:rounded-3xl md:border md:border-black/10 md:bg-background md:p-8 md:shadow-xl md:dark:border-white/15">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-foreground text-background">
             <Clock className="h-7 w-7" />
