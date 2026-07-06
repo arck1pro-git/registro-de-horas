@@ -206,7 +206,7 @@ export function PontoFlow({
       triggerIcon={Clock}
       options={pontoOptions}
       disabled={!modalidadeRegistrada}
-      disabledHint="Registre a modalidade do dia para liberar o ponto."
+      disabledHint="Registre a modalidade do dia para liberar o registro."
     />
   );
 }

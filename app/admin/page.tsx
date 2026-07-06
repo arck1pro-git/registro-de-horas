@@ -12,6 +12,7 @@ import {
 import { EmployeeSelect } from "./employee-select";
 import { MonthSelect } from "./month-select";
 import { DayEditor } from "./day-editor";
+import { NewUserButton } from "./new-user-button";
 
 type Row = {
   dateKey: string;
@@ -146,7 +147,7 @@ export default async function Admin({
               Painel do administrador
             </h1>
             <p className="text-sm opacity-60">
-              Registros por funcionário e edição manual
+              Registros por pessoa e edição manual
             </p>
           </div>
         </div>
@@ -163,6 +164,7 @@ export default async function Admin({
               </a>
             </>
           )}
+          <NewUserButton />
           <form action={logout}>
             <button
               type="submit"
@@ -177,7 +179,7 @@ export default async function Admin({
 
       <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="flex items-center gap-3">
-          <label className="text-sm font-medium opacity-70">Funcionário</label>
+          <label className="text-sm font-medium opacity-70">Pessoa</label>
           <EmployeeSelect
             funcionarios={funcionarios.map((f) => ({ id: f.id, name: f.name }))}
             selectedId={selectedId}
@@ -205,7 +207,7 @@ export default async function Admin({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center opacity-50">
-                  Nenhum registro para este funcionário.
+                  Nenhum registro para esta pessoa.
                 </td>
               </tr>
             ) : (
@@ -260,6 +262,7 @@ export default async function Admin({
                         dateKey={row.dateKey}
                         dateLabel={row.dateLabel}
                         punches={row.punches}
+                        modality={row.modality}
                       />
                     )}
                   </td>

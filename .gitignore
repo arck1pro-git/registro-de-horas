@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# segredos (contêm private key do Firebase / senha do banco)
+script-n8n.js
+n8n-code-node.js
+service-account*.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*

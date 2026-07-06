@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Ponto",
+    title: "Horas",
   },
   icons: {
     apple: "/apple-touch-icon.png",

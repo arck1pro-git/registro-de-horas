@@ -10,17 +10,6 @@ import {
 // exceljs precisa do runtime Node (streams/buffers), não do Edge.
 export const runtime = "nodejs";
 
-// --- Dados fixos do modelo (Folha de Ponto) --------------------------------
-const EMPREGADOR = {
-  razaoSocial: "ARCK1PRO BUSINESS E1 LTDA",
-  cnpj: "43.343.224/0001-09",
-  endereco:
-    "RUA MARIO WALENDOWSKY, 146 - B - PEREQUE - Porto Belo / SC - CEP 88210-000",
-};
-const EXPEDIENTE =
-  "- De segunda-feira a sexta-feira de 08:30 as 17:30 e intervalo de 12:00 as 13:00.";
-const JORNADA_DIARIA_MIN = 8 * 60; // 08:00 previstas em dias úteis
-
 const WD_ABBR = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
 const WD_FULL = [
   "Domingo",
@@ -39,9 +28,6 @@ function fmtHM(min: number) {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return `${pad(h)}:${pad(m)}`;
-}
-function fmtSaldo(min: number) {
-  return (min < 0 ? "-" : "") + fmtHM(Math.abs(min));
 }
 function timeOf(iso: string) {
   const d = new Date(iso);
@@ -94,7 +80,7 @@ export async function GET(request: Request) {
 
   const funcionario = await findUserById(userId);
   if (!funcionario) {
-    return new Response("Funcionário não encontrado.", { status: 404 });
+    return new Response("Registro não encontrado.", { status: 404 });
   }
 
   const registros = await getRegistrosByUser(userId);
@@ -130,88 +116,32 @@ export async function GET(request: Request) {
   wb.created = now;
 
   // =========================================================================
-  // ABA 1 — Folha de Ponto
+  // ABA 1 — Registro de horas
   // =========================================================================
-  const s1 = wb.addWorksheet("Folha de Ponto", {
+  const s1 = wb.addWorksheet("Horas", {
     views: [{ showGridLines: false }],
   });
   s1.columns = [
-    { width: 18 }, // Dia
-    { width: 46 }, // Marcações
-    { width: 11 }, // Previstas
-    { width: 12 }, // Trabalhadas
-    { width: 9 }, // Abonos
-    { width: 10 }, // Saldo
+    { width: 20 }, // Dia
+    { width: 48 }, // Marcações
+    { width: 16 }, // Total de horas
   ];
 
   let r = 1;
-  const titleRow = (text: string, opts: Partial<ExcelJS.Font> = {}) => {
-    s1.mergeCells(r, 1, r, 6);
-    const c = s1.getCell(r, 1);
-    c.value = text;
-    c.font = { bold: true, ...opts };
-    c.alignment = { horizontal: "center" };
-    r++;
-  };
-  const fullRow = (text: string, opts: Partial<ExcelJS.Font> = {}) => {
-    s1.mergeCells(r, 1, r, 6);
-    const c = s1.getCell(r, 1);
-    c.value = text;
-    c.font = { ...opts };
-    r++;
-  };
-  const sectionRow = (text: string) => {
-    s1.mergeCells(r, 1, r, 6);
-    const c = s1.getCell(r, 1);
-    c.value = text;
-    c.font = { bold: true };
-    c.alignment = { horizontal: "center" };
-    c.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFEFEFEF" },
-    };
-    r++;
-  };
 
-  titleRow("Folha de Ponto", { size: 14 });
-  fullRow(
-    `Apuração: de 01/${pad(month + 1)}/${year} a ${pad(daysInMonth)}/${pad(month + 1)}/${year}`,
-  );
-  s1.getCell(r - 1, 1).alignment = { horizontal: "center" };
-  fullRow(
-    `Emitido em ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`,
-  );
-  s1.getCell(r - 1, 1).alignment = { horizontal: "center" };
-  r++;
-
-  sectionRow("DADOS DO EMPREGADOR");
-  fullRow(
-    `Razão Social: ${EMPREGADOR.razaoSocial}          CNPJ: ${EMPREGADOR.cnpj}`,
-  );
-  fullRow(`Endereço: ${EMPREGADOR.endereco}`);
-  r++;
-
-  sectionRow("DADOS DO TRABALHADOR");
-  fullRow(`Nome: ${funcionario.name}`, { bold: true });
-  fullRow("Data de admissão:          Cargo:          Departamento:          Setor:");
-  fullRow("CPF:          CTPS:          Série:          PIS / PASEP:          eSocial:");
-  r++;
-
-  sectionRow("EXPEDIENTE(S)");
-  fullRow(EXPEDIENTE);
-  r++;
-
-  sectionRow("REGISTROS");
+  // Único cabeçalho: o nome.
+  s1.getCell(r, 1).value = `Nome: ${funcionario.name}`;
+  s1.getCell(r, 1).font = { bold: true };
+  r += 2;
 
   // Cabeçalho da tabela
-  const head = ["Dia", "Marcações", "Previstas", "Trabalhadas", "Abonos", "Saldo"];
+  const head = ["Dia", "Marcações", "Total de horas"];
   const headRow = s1.getRow(r);
   head.forEach((h, i) => {
     const c = headRow.getCell(i + 1);
     c.value = h;
     c.font = { bold: true };
-    c.alignment = { horizontal: i === 0 || i === 1 ? "left" : "center" };
+    c.alignment = { horizontal: i === 2 ? "center" : "left" };
     c.fill = {
       type: "pattern",
       pattern: "solid",
@@ -221,12 +151,10 @@ export async function GET(request: Request) {
   });
   r++;
 
-  let totalPrev = 0;
-  let totalTrab = 0;
+  let totalMin = 0;
   for (let day = 1; day <= daysInMonth; day++) {
     const dt = new Date(year, month, day);
     const wd = dt.getDay();
-    const isWeekday = wd >= 1 && wd <= 5;
     const list = byDay.get(day) ?? [];
 
     const marc =
@@ -235,50 +163,37 @@ export async function GET(request: Request) {
             .map((p) => `${timeOf(p.timestamp)}(${p.tipo === "in" ? "E" : "S"})`)
             .join("  ")
         : "-";
-    const trab = workedMinutes(list);
-    const prev = isWeekday ? JORNADA_DIARIA_MIN : 0;
-    totalPrev += prev;
-    totalTrab += trab;
+    const min = workedMinutes(list);
+    totalMin += min;
 
-    const hasData = list.length > 0 || isWeekday;
     const row = s1.getRow(r);
     const cells = [
       `${pad(day)}/${pad(month + 1)}/${year} ${WD_ABBR[wd]}`,
       marc,
-      prev > 0 ? fmtHM(prev) : "-",
-      trab > 0 ? fmtHM(trab) : "-",
-      "-",
-      hasData ? fmtSaldo(trab - prev) : "-",
+      min > 0 ? fmtHM(min) : "-",
     ];
     cells.forEach((v, i) => {
       const c = row.getCell(i + 1);
       c.value = v;
-      c.alignment = { horizontal: i === 0 || i === 1 ? "left" : "center" };
+      c.alignment = { horizontal: i === 2 ? "center" : "left" };
       c.border = BORDER_ALL;
     });
     r++;
   }
 
-  // Linha de TOTAL
+  // Linha de total de horas
   const totalRow = s1.getRow(r);
-  const totalCells = ["TOTAL", "", fmtHM(totalPrev), fmtHM(totalTrab), "-", ""];
+  const totalCells = ["Total de horas", "", fmtHM(totalMin)];
   totalCells.forEach((v, i) => {
     const c = totalRow.getCell(i + 1);
     c.value = v;
     c.font = { bold: true };
-    c.alignment = { horizontal: i === 0 || i === 1 ? "left" : "center" };
+    c.alignment = { horizontal: i === 2 ? "center" : "left" };
     c.border = BORDER_ALL;
   });
   r += 2;
 
-  fullRow("Legenda: (E) = Entrada. (S) = Saída.");
-  r++;
-  fullRow(EMPREGADOR.razaoSocial, { bold: true });
-  s1.getCell(r - 1, 1).alignment = { horizontal: "left" };
-  const trabNomeRow = s1.getRow(r - 1);
-  trabNomeRow.getCell(6).value = funcionario.name;
-  fullRow("Responsável");
-  s1.getRow(r - 1).getCell(6).value = "Trabalhador";
+  s1.getCell(r, 1).value = "Legenda: (E) = Entrada. (S) = Saída.";
 
   // =========================================================================
   // ABA 2 — Deslocamento (dias presenciais)
@@ -359,7 +274,7 @@ export async function GET(request: Request) {
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
-  const filename = `folha-ponto-${slug}-${mesKey}.xlsx`;
+  const filename = `horas-${slug}-${mesKey}.xlsx`;
 
   return new Response(buffer, {
     status: 200,

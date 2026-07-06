@@ -84,7 +84,7 @@ export function HoursCalendar({
 
       {/* Descrição geral do que é o quê */}
       <p className="text-xs leading-relaxed opacity-60">
-        O número em cada dia é o total de horas trabalhadas; a cor indica a
+        O número em cada dia é o total de horas; a cor indica a
         modalidade. Toque num dia para ver as entradas e saídas.
       </p>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -155,7 +155,7 @@ export function HoursCalendar({
               <div>
                 <p className="text-base font-semibold capitalize">{dateLabel}</p>
                 <p className="text-sm opacity-60">
-                  Total trabalhado: {fmtDur(info.minutes)}
+                  Total: {fmtDur(info.minutes)}
                 </p>
               </div>
               <button

@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Registro de Horas",
-    short_name: "Ponto",
+    short_name: "Horas",
     description: "Sistema de registro de horas",
     lang: "pt-BR",
     start_url: "/",

@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   const modalidade = await getModalidadeForDay(userId, hojeKey());
   if (!modalidade) {
     return NextResponse.json(
-      { error: "Registre a modalidade do dia antes de bater o ponto." },
+      { error: "Registre a modalidade do dia antes de registrar." },
       { status: 400 }
     );
   }

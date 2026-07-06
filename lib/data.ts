@@ -5,6 +5,7 @@
 //   registros   — ponto: cada entrada/saída com data-hora
 //   modalidade  — como o funcionário trabalhou em cada dia (uma por dia)
 
+import { randomUUID } from "crypto";
 import { query } from "./db";
 
 export type Role = "admin" | "user";
@@ -57,6 +58,24 @@ export async function findUserById(id: string): Promise<User | undefined> {
       WHERE id = $1
       LIMIT 1`,
     [id]
+  );
+  return rows[0];
+}
+
+/**
+ * Cria um usuário comum (role sempre 'user'). Lança { code: '23505' } se o
+ * e-mail já existir (constraint UNIQUE) — trate na rota.
+ */
+export async function createUser(input: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<User> {
+  const rows = await query<User>(
+    `INSERT INTO users (id, name, email, senha, role)
+     VALUES ($1, $2, $3, $4, 'user')
+     RETURNING id, name, email, senha AS password, role, image_url AS image`,
+    [randomUUID(), input.name, input.email, input.password]
   );
   return rows[0];
 }

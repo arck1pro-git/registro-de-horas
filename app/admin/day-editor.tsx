@@ -2,7 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, X, Check, Trash2, LogIn, LogOut, CalendarPlus } from "lucide-react";
+import {
+  Pencil,
+  X,
+  Check,
+  Trash2,
+  LogIn,
+  LogOut,
+  CalendarPlus,
+  House,
+  Building2,
+} from "lucide-react";
+
+type Modalidade = "home_office" | "presencial";
 
 export type Punch = { id: string; tipo: "in" | "out"; time: string };
 
@@ -31,6 +43,7 @@ export function DayEditor({
   dateKey,
   dateLabel,
   punches = [],
+  modality = null,
   variant = "row",
 }: {
   userId: string;
@@ -38,12 +51,15 @@ export function DayEditor({
   dateKey?: string;
   dateLabel?: string;
   punches?: Punch[];
+  /** Modalidade atual do dia (null = ainda não definida). */
+  modality?: Modalidade | null;
   variant?: "row" | "header";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(dateKey ?? todayKey());
   const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [modalidade, setModalidade] = useState<Modalidade | null>(modality);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -53,6 +69,7 @@ export function DayEditor({
     setDrafts(
       punches.map((p) => ({ key: p.id, id: p.id, tipo: p.tipo, time: p.time }))
     );
+    setModalidade(modality);
     setOpen(true);
   }
 
@@ -92,6 +109,16 @@ export function DayEditor({
 
     startTransition(async () => {
       try {
+        // Modalidade do dia (se escolhida e diferente da atual).
+        if (modalidade && modalidade !== modality) {
+          const res = await fetch("/api/modalidade", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId, tipo: modalidade, dia: date }),
+          });
+          if (!res.ok) throw new Error();
+        }
+
         for (const d of drafts) {
           if (d.deleted) {
             if (d.id) {
@@ -170,7 +197,7 @@ export function DayEditor({
                   <p className="text-sm capitalize opacity-60">{dateLabel}</p>
                 ) : (
                   <p className="text-sm opacity-60">
-                    Adicione entradas e saídas para o funcionário.
+                    Adicione entradas e saídas.
                   </p>
                 )}
               </div>
@@ -195,6 +222,37 @@ export function DayEditor({
                 />
               </label>
             )}
+
+            {/* Modalidade do dia. */}
+            <div className="mb-4 flex flex-col gap-1.5">
+              <span className="text-sm font-medium">Modalidade</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalidade("home_office")}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium ${
+                    modalidade === "home_office"
+                      ? "border-transparent bg-indigo-600 text-white"
+                      : "border-black/10 hover:bg-foreground/5 dark:border-white/15"
+                  }`}
+                >
+                  <House className="h-4 w-4" />
+                  Home Office
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalidade("presencial")}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium ${
+                    modalidade === "presencial"
+                      ? "border-transparent bg-amber-600 text-white"
+                      : "border-black/10 hover:bg-foreground/5 dark:border-white/15"
+                  }`}
+                >
+                  <Building2 className="h-4 w-4" />
+                  Presencial
+                </button>
+              </div>
+            </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
               {visiveis.length === 0 ? (

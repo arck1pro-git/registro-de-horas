@@ -62,10 +62,6 @@ export default function LoginPage() {
             {isPending ? "Entrando..." : "Entrar"}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-xs opacity-50">
-          Demo: demo@ponto.com / 123456
-        </p>
       </div>
     </main>
   );
