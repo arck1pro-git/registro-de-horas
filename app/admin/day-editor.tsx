@@ -61,10 +61,12 @@ export function DayEditor({
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [modalidade, setModalidade] = useState<Modalidade | null>(modality);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function abrir() {
     setError(null);
+    setConfirmingClear(false);
     setDate(dateKey ?? todayKey());
     setDrafts(
       punches.map((p) => ({ key: p.id, id: p.id, tipo: p.tipo, time: p.time }))
@@ -98,6 +100,25 @@ export function DayEditor({
   }
 
   const visiveis = drafts.filter((d) => !d.deleted);
+
+  /** Apaga todas as batidas (entradas/saídas) existentes do dia. */
+  function apagarDia() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        for (const p of punches) {
+          const res = await fetch(`/api/registros?id=${p.id}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) throw new Error();
+        }
+        setOpen(false);
+        router.refresh();
+      } catch {
+        setError("Não foi possível apagar. Tente novamente.");
+      }
+    });
+  }
 
   function salvar() {
     setError(null);
@@ -326,6 +347,45 @@ export function DayEditor({
                 Saída
               </button>
             </div>
+
+            {/* Apagar todos os registros do dia (somente ao editar um dia com batidas). */}
+            {dateKey && punches.length > 0 && (
+              <div className="mt-3">
+                {confirmingClear ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-rose-600/40 bg-rose-600/10 p-2">
+                    <span className="flex-1 px-1 text-sm">
+                      Apagar todos os registros deste dia?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingClear(false)}
+                      disabled={isPending}
+                      className="rounded-lg px-3 py-1.5 text-sm font-medium opacity-70 hover:opacity-100 disabled:opacity-60"
+                    >
+                      Não
+                    </button>
+                    <button
+                      type="button"
+                      onClick={apagarDia}
+                      disabled={isPending}
+                      className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+                    >
+                      {isPending ? "Apagando..." : "Sim, apagar"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingClear(true)}
+                    disabled={isPending}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-600/40 px-3 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-600/10 disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Apagar registros do dia
+                  </button>
+                )}
+              </div>
+            )}
 
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
