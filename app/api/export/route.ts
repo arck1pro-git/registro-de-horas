@@ -6,6 +6,7 @@ import {
   getModalidadesByUser,
   type Registro,
 } from "@/lib/data";
+import { formatTime, dateKey } from "@/lib/tz";
 
 // exceljs precisa do runtime Node (streams/buffers), não do Edge.
 export const runtime = "nodejs";
@@ -30,8 +31,7 @@ function fmtHM(min: number) {
   return `${pad(h)}:${pad(m)}`;
 }
 function timeOf(iso: string) {
-  const d = new Date(iso);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return formatTime(iso);
 }
 
 /** Minutos trabalhados pareando entrada → saída em ordem. */
@@ -92,12 +92,13 @@ export async function GET(request: Request) {
   // Registros do mês agrupados por dia (1..daysInMonth).
   const byDay = new Map<number, Registro[]>();
   for (const r of registros) {
-    const d = new Date(r.timestamp);
-    if (d.getFullYear() !== year || d.getMonth() !== month) continue;
-    const day = d.getDate();
-    const list = byDay.get(day) ?? [];
+    // Agrupa pelo dia no fuso do app (não em UTC), senão batidas noturnas
+    // caem no dia errado. Chave: "YYYY-MM-DD".
+    const [y, mo, dd] = dateKey(r.timestamp).split("-").map(Number);
+    if (y !== year || mo - 1 !== month) continue;
+    const list = byDay.get(dd) ?? [];
     list.push(r);
-    byDay.set(day, list);
+    byDay.set(dd, list);
   }
   for (const list of byDay.values()) {
     list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));

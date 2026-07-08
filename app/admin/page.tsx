@@ -13,6 +13,7 @@ import { EmployeeSelect } from "./employee-select";
 import { MonthSelect } from "./month-select";
 import { DayEditor } from "./day-editor";
 import { NewUserButton } from "./new-user-button";
+import { formatTime, dateKey } from "@/lib/tz";
 
 type Row = {
   dateKey: string;
@@ -26,24 +27,12 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
-function dateKeyOf(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 function fmtDur(min: number) {
   const h = Math.floor(min / 60);
   const m = min % 60;
   if (h && m) return `${h}h ${m}min`;
   if (h) return `${h}h`;
   return `${m}min`;
-}
-
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function workedMinutes(list: Registro[]) {
@@ -93,7 +82,7 @@ export default async function Admin({
     : [];
   // Escopa ao mês selecionado.
   const registros = allRegistros.filter((r) =>
-    dateKeyOf(r.timestamp).startsWith(mesKey)
+    dateKey(r.timestamp).startsWith(mesKey)
   );
   const modalidades = allModalidades.filter((m) => m.dia.startsWith(mesKey));
 
@@ -104,7 +93,7 @@ export default async function Admin({
   // Agrupa os registros de ponto por dia (já vêm em ordem crescente).
   const byDay = new Map<string, Registro[]>();
   for (const r of registros) {
-    const key = dateKeyOf(r.timestamp);
+    const key = dateKey(r.timestamp);
     const list = byDay.get(key) ?? [];
     list.push(r);
     byDay.set(key, list);
@@ -129,7 +118,7 @@ export default async function Admin({
         punches: list.map((r) => ({
           id: r.id,
           tipo: r.tipo,
-          time: fmtTime(r.timestamp),
+          time: formatTime(r.timestamp),
         })),
         modality: modalityByKey.get(dateKey) ?? null,
       };

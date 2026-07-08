@@ -9,6 +9,7 @@ import {
 } from "@/lib/data";
 import { PontoFlow, ModalidadeFlow } from "@/app/registro-flow";
 import { ProfileHeader } from "@/app/profile-header";
+import { formatTime, formatDate, dateKey } from "@/lib/tz";
 
 const LABELS: Record<RegistroTipo, string> = {
   in: "Entrada",
@@ -20,29 +21,6 @@ const DOT: Record<RegistroTipo, string> = {
   out: "bg-rose-600",
 };
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-function dateKeyOf(d: Date) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
 export default async function Home() {
   const session = await auth();
   const user = session?.user;
@@ -53,9 +31,9 @@ export default async function Home() {
 
   // Apenas os registros de hoje.
   const hoje = new Date();
-  const hojeKey = dateKeyOf(hoje);
+  const hojeKey = dateKey(hoje);
   const registrosHoje = registros.filter(
-    (r) => dateKeyOf(new Date(r.timestamp)) === hojeKey
+    (r) => dateKey(r.timestamp) === hojeKey
   );
   const last = registrosHoje[registrosHoje.length - 1];
   const modalidadeHoje = modalidades.find((m) => m.dia === hojeKey);

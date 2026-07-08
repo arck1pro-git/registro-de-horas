@@ -9,13 +9,12 @@ import {
   getModalidadeForDay,
   type RegistroTipo,
 } from "@/lib/data";
+import { dateKey } from "@/lib/tz";
 
 const TIPOS: RegistroTipo[] = ["in", "out"];
 
 function hojeKey(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return dateKey(new Date());
 }
 
 // GET /api/registros            -> registros do usuário logado
