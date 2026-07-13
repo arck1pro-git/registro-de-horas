@@ -24,6 +24,11 @@ CREATE TABLE IF NOT EXISTS users (
 -- Via ALTER (idempotente) para atualizar bancos já existentes.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token TEXT;
 
+-- Fuso horário do usuário (IANA, ex.: 'America/Sao_Paulo'). Usado para exibir e
+-- agrupar por dia os registros DESSA pessoa. Padrão = São Paulo.
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo';
+
 -- ---------------------------------------------------------------------------
 -- Registros de ponto: cada entrada/saída é uma linha com data-hora.
 -- ---------------------------------------------------------------------------

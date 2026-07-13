@@ -90,6 +90,41 @@ export async function getFuncionarios(): Promise<User[]> {
   );
 }
 
+/**
+ * Atualiza dados de um usuário (nome, e-mail e/ou senha). Só altera os campos
+ * informados. Lança { code: '23505' } se o novo e-mail já existir. Retorna
+ * undefined se o id não existir.
+ */
+export async function updateUser(
+  id: string,
+  fields: { name?: string; email?: string; password?: string }
+): Promise<User | undefined> {
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if (fields.name !== undefined) {
+    params.push(fields.name);
+    sets.push(`name = $${params.length}`);
+  }
+  if (fields.email !== undefined) {
+    params.push(fields.email);
+    sets.push(`email = $${params.length}`);
+  }
+  if (fields.password !== undefined) {
+    params.push(fields.password);
+    sets.push(`senha = $${params.length}`);
+  }
+  if (sets.length === 0) return findUserById(id);
+
+  params.push(id);
+  const rows = await query<User>(
+    `UPDATE users SET ${sets.join(", ")}
+      WHERE id = $${params.length}
+     RETURNING id, name, email, senha AS password, role, image_url AS image`,
+    params
+  );
+  return rows[0];
+}
+
 /** Atualiza a URL da foto de perfil (passe null para remover). */
 export async function updateUserImage(
   userId: string,
@@ -98,6 +133,35 @@ export async function updateUserImage(
   await query(`UPDATE users SET image_url = $2 WHERE id = $1`, [
     userId,
     imageUrl,
+  ]);
+}
+
+/**
+ * Fuso horário (IANA) do usuário. Retorna 'America/Sao_Paulo' se a coluna ainda
+ * não existir (migração não rodada) ou se estiver vazia.
+ */
+export async function getUserTimezone(userId: string): Promise<string> {
+  try {
+    const rows = await query<{ timezone: string | null }>(
+      `SELECT timezone FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+    return rows[0]?.timezone || "America/Sao_Paulo";
+  } catch (err) {
+    // 42703 = coluna inexistente: trata como padrão.
+    if ((err as { code?: string })?.code === "42703") return "America/Sao_Paulo";
+    throw err;
+  }
+}
+
+/** Define o fuso horário (IANA) do usuário. */
+export async function setUserTimezone(
+  userId: string,
+  timezone: string
+): Promise<void> {
+  await query(`UPDATE users SET timezone = $2 WHERE id = $1`, [
+    userId,
+    timezone,
   ]);
 }
 
@@ -238,6 +302,17 @@ export async function getModalidadeForDay(
     [userId, dia]
   );
   return rows[0];
+}
+
+/** Remove a modalidade de um dia (usado ao apagar o dia inteiro no admin). */
+export async function deleteModalidade(
+  userId: string,
+  dia: string // "YYYY-MM-DD"
+): Promise<void> {
+  await query(`DELETE FROM modalidade WHERE user_id = $1 AND dia = $2`, [
+    userId,
+    dia,
+  ]);
 }
 
 /** Marca a modalidade de um dia (uma por dia — remarcar sobrescreve). */

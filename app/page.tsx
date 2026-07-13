@@ -5,6 +5,7 @@ import {
   getModalidadesByUser,
   findUserById,
   getFcmToken,
+  getUserTimezone,
   type RegistroTipo,
 } from "@/lib/data";
 import { PontoFlow, ModalidadeFlow } from "@/app/registro-flow";
@@ -28,12 +29,13 @@ export default async function Home() {
   const registros = user?.id ? await getRegistrosByUser(user.id) : [];
   const modalidades = user?.id ? await getModalidadesByUser(user.id) : [];
   const notificationsEnabled = user?.id ? !!(await getFcmToken(user.id)) : false;
+  const tz = user?.id ? await getUserTimezone(user.id) : undefined;
 
-  // Apenas os registros de hoje.
+  // Apenas os registros de hoje (no fuso do usuário).
   const hoje = new Date();
-  const hojeKey = dateKey(hoje);
+  const hojeKey = dateKey(hoje, tz);
   const registrosHoje = registros.filter(
-    (r) => dateKey(r.timestamp) === hojeKey
+    (r) => dateKey(r.timestamp, tz) === hojeKey
   );
   const last = registrosHoje[registrosHoje.length - 1];
   const modalidadeHoje = modalidades.find((m) => m.dia === hojeKey);
@@ -44,6 +46,7 @@ export default async function Home() {
         name={dbUser?.name ?? user?.name}
         imageUrl={dbUser?.image}
         notificationsEnabled={notificationsEnabled}
+        timezone={tz}
       />
 
       {/* Section sobe por cima da foto, com cantos bem arredondados */}
@@ -58,7 +61,7 @@ export default async function Home() {
         <section className="flex flex-col items-center gap-1 text-center">
           <p className="text-sm opacity-60">
             {last
-              ? `Último registro: ${LABELS[last.tipo]} às ${formatTime(last.timestamp)}`
+              ? `Último registro: ${LABELS[last.tipo]} às ${formatTime(last.timestamp, tz)}`
               : "Nenhum registro ainda"}
           </p>
         </section>
@@ -83,7 +86,7 @@ export default async function Home() {
                   {LABELS[r.tipo]}
                 </span>
                 <span className="text-sm opacity-60">
-                  {formatDate(r.timestamp)} · {formatTime(r.timestamp)}
+                  {formatDate(r.timestamp, tz)} · {formatTime(r.timestamp, tz)}
                 </span>
               </li>
             ))}

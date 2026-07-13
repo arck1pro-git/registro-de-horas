@@ -101,7 +101,10 @@ export function DayEditor({
 
   const visiveis = drafts.filter((d) => !d.deleted);
 
-  /** Apaga todas as batidas (entradas/saídas) existentes do dia. */
+  /**
+   * Apaga o dia inteiro: todas as batidas (entradas/saídas) e a modalidade.
+   * Assim o card some da lista em vez de apenas zerar.
+   */
   function apagarDia() {
     setError(null);
     startTransition(async () => {
@@ -110,6 +113,13 @@ export function DayEditor({
           const res = await fetch(`/api/registros?id=${p.id}`, {
             method: "DELETE",
           });
+          if (!res.ok) throw new Error();
+        }
+        if (modality && dateKey) {
+          const res = await fetch(
+            `/api/modalidade?userId=${userId}&dia=${dateKey}`,
+            { method: "DELETE" }
+          );
           if (!res.ok) throw new Error();
         }
         setOpen(false);
@@ -348,8 +358,8 @@ export function DayEditor({
               </button>
             </div>
 
-            {/* Apagar todos os registros do dia (somente ao editar um dia com batidas). */}
-            {dateKey && punches.length > 0 && (
+            {/* Apagar o dia inteiro (batidas + modalidade), removendo o card. */}
+            {dateKey && (punches.length > 0 || modality) && (
               <div className="mt-3">
                 {confirmingClear ? (
                   <div className="flex items-center gap-2 rounded-xl border border-rose-600/40 bg-rose-600/10 p-2">

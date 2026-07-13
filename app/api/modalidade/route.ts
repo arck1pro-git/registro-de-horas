@@ -3,17 +3,14 @@ import { auth } from "@/auth";
 import {
   getModalidadesByUser,
   setModalidade,
+  deleteModalidade,
+  getUserTimezone,
   type ModalidadeTipo,
 } from "@/lib/data";
+import { dateKey } from "@/lib/tz";
 
 const TIPOS: ModalidadeTipo[] = ["home_office", "presencial"];
 const DIA_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function hoje(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
 
 // GET /api/modalidade            -> modalidades do usuário logado
 // GET /api/modalidade?userId=X   -> modalidades de X (somente admin)
@@ -49,7 +46,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const dia = body?.dia ? String(body.dia) : hoje();
+  const isAdmin = session.user.role === "admin";
+  const userId = isAdmin && body?.userId ? String(body.userId) : session.user.id;
+
+  // dia padrão = hoje no fuso do próprio usuário.
+  const dia = body?.dia
+    ? String(body.dia)
+    : dateKey(new Date(), await getUserTimezone(userId));
   if (!DIA_RE.test(dia)) {
     return NextResponse.json(
       { error: "dia deve estar no formato YYYY-MM-DD." },
@@ -57,9 +60,31 @@ export async function POST(request: Request) {
     );
   }
 
-  const isAdmin = session.user.role === "admin";
-  const userId = isAdmin && body?.userId ? String(body.userId) : session.user.id;
-
   const modalidade = await setModalidade(userId, tipo, dia);
   return NextResponse.json({ modalidade }, { status: 201 });
+}
+
+// DELETE /api/modalidade?dia=YYYY-MM-DD[&userId=X]  (somente admin)
+//   Remove a modalidade do dia — usado ao apagar o dia inteiro.
+export async function DELETE(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+  if (session.user.role !== "admin") {
+    return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+  }
+
+  const params = new URL(request.url).searchParams;
+  const dia = params.get("dia");
+  if (!dia || !DIA_RE.test(dia)) {
+    return NextResponse.json(
+      { error: "dia deve estar no formato YYYY-MM-DD." },
+      { status: 400 }
+    );
+  }
+
+  const userId = params.get("userId") ?? session.user.id;
+  await deleteModalidade(userId, dia);
+  return NextResponse.json({ ok: true });
 }

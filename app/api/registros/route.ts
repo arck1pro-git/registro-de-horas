@@ -7,15 +7,12 @@ import {
   deleteRegistro,
   getRegistrosByUser,
   getModalidadeForDay,
+  getUserTimezone,
   type RegistroTipo,
 } from "@/lib/data";
 import { dateKey } from "@/lib/tz";
 
 const TIPOS: RegistroTipo[] = ["in", "out"];
-
-function hojeKey(): string {
-  return dateKey(new Date());
-}
 
 // GET /api/registros            -> registros do usuário logado
 // GET /api/registros?userId=X   -> registros de X (somente admin)
@@ -68,8 +65,10 @@ export async function POST(request: Request) {
   }
 
   // Fluxo do funcionário: só permite bater ponto se a modalidade do dia
-  // já foi registrada.
-  const modalidade = await getModalidadeForDay(userId, hojeKey());
+  // já foi registrada. "Hoje" é calculado no fuso do próprio funcionário.
+  const tz = await getUserTimezone(userId);
+  const hojeKey = dateKey(new Date(), tz);
+  const modalidade = await getModalidadeForDay(userId, hojeKey);
   if (!modalidade) {
     return NextResponse.json(
       { error: "Registre a modalidade do dia antes de registrar." },

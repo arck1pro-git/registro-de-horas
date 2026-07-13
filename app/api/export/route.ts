@@ -4,6 +4,7 @@ import {
   findUserById,
   getRegistrosByUser,
   getModalidadesByUser,
+  getUserTimezone,
   type Registro,
 } from "@/lib/data";
 import { formatTime, dateKey } from "@/lib/tz";
@@ -30,8 +31,8 @@ function fmtHM(min: number) {
   const m = min % 60;
   return `${pad(h)}:${pad(m)}`;
 }
-function timeOf(iso: string) {
-  return formatTime(iso);
+function timeOf(iso: string, tz: string) {
+  return formatTime(iso, tz);
 }
 
 /** Minutos trabalhados pareando entrada → saída em ordem. */
@@ -83,6 +84,7 @@ export async function GET(request: Request) {
     return new Response("Registro não encontrado.", { status: 404 });
   }
 
+  const tz = await getUserTimezone(userId);
   const registros = await getRegistrosByUser(userId);
   const modalidades = await getModalidadesByUser(userId);
 
@@ -94,7 +96,7 @@ export async function GET(request: Request) {
   for (const r of registros) {
     // Agrupa pelo dia no fuso do app (não em UTC), senão batidas noturnas
     // caem no dia errado. Chave: "YYYY-MM-DD".
-    const [y, mo, dd] = dateKey(r.timestamp).split("-").map(Number);
+    const [y, mo, dd] = dateKey(r.timestamp, tz).split("-").map(Number);
     if (y !== year || mo - 1 !== month) continue;
     const list = byDay.get(dd) ?? [];
     list.push(r);
@@ -161,7 +163,7 @@ export async function GET(request: Request) {
     const marc =
       list.length > 0
         ? list
-            .map((p) => `${timeOf(p.timestamp)}(${p.tipo === "in" ? "E" : "S"})`)
+            .map((p) => `${timeOf(p.timestamp, tz)}(${p.tipo === "in" ? "E" : "S"})`)
             .join("  ")
         : "-";
     const min = workedMinutes(list);

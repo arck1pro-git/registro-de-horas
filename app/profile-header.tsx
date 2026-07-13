@@ -9,8 +9,32 @@ import {
   LogOut,
   Download,
   Bell,
+  KeyRound,
+  Globe,
+  X,
+  Check,
 } from "lucide-react";
 import { logout } from "@/app/actions";
+
+// Fusos oferecidos na troca. Rótulos amigáveis; valores são IANA.
+const TIMEZONES: { value: string; label: string }[] = [
+  { value: "America/Sao_Paulo", label: "São Paulo / Brasília (GMT−3)" },
+  { value: "America/Bahia", label: "Salvador (GMT−3)" },
+  { value: "America/Fortaleza", label: "Fortaleza (GMT−3)" },
+  { value: "America/Recife", label: "Recife (GMT−3)" },
+  { value: "America/Belem", label: "Belém (GMT−3)" },
+  { value: "America/Campo_Grande", label: "Campo Grande (GMT−4)" },
+  { value: "America/Cuiaba", label: "Cuiabá (GMT−4)" },
+  { value: "America/Manaus", label: "Manaus (GMT−4)" },
+  { value: "America/Porto_Velho", label: "Porto Velho (GMT−4)" },
+  { value: "America/Boa_Vista", label: "Boa Vista (GMT−4)" },
+  { value: "America/Rio_Branco", label: "Rio Branco / Acre (GMT−5)" },
+  { value: "America/Noronha", label: "Fernando de Noronha (GMT−2)" },
+  { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires (GMT−3)" },
+  { value: "America/New_York", label: "Nova York (GMT−5/−4)" },
+  { value: "Europe/Lisbon", label: "Lisboa (GMT+0/+1)" },
+  { value: "UTC", label: "UTC (GMT+0)" },
+];
 
 // Evento não-tipado no lib.dom padrão; definição mínima do que usamos.
 type BeforeInstallPromptEvent = Event & {
@@ -22,10 +46,12 @@ export function ProfileHeader({
   name,
   imageUrl,
   notificationsEnabled = false,
+  timezone = "America/Sao_Paulo",
 }: {
   name?: string | null;
   imageUrl?: string | null;
   notificationsEnabled?: boolean;
+  timezone?: string;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,6 +62,97 @@ export function ProfileHeader({
   // Notificações (push / FCM).
   const [notifEnabled, setNotifEnabled] = useState(notificationsEnabled);
   const [notifBusy, setNotifBusy] = useState(false);
+
+  // Troca de senha.
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pw1, setPw1] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
+
+  function abrirTrocaSenha() {
+    setMenuOpen(false);
+    setPw1("");
+    setPw2("");
+    setPwError(null);
+    setPwOpen(true);
+  }
+
+  function fecharTrocaSenha() {
+    if (!pwBusy) setPwOpen(false);
+  }
+
+  async function salvarSenha() {
+    setPwError(null);
+    if (pw1.length < 4) {
+      setPwError("A senha deve ter ao menos 4 caracteres.");
+      return;
+    }
+    if (pw1 !== pw2) {
+      setPwError("As senhas não coincidem.");
+      return;
+    }
+    setPwBusy(true);
+    try {
+      const res = await fetch("/api/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw1 }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Não foi possível trocar a senha.");
+      }
+      // Senha trocada: desloga e força novo login com a nova senha.
+      await logout();
+    } catch (err) {
+      setPwError(
+        err instanceof Error ? err.message : "Não foi possível trocar a senha."
+      );
+      setPwBusy(false);
+    }
+  }
+
+  // Fuso horário.
+  const [tzOpen, setTzOpen] = useState(false);
+  const [tz, setTz] = useState(timezone);
+  const [tzError, setTzError] = useState<string | null>(null);
+  const [tzBusy, setTzBusy] = useState(false);
+
+  function abrirFuso() {
+    setMenuOpen(false);
+    setTz(timezone);
+    setTzError(null);
+    setTzOpen(true);
+  }
+
+  function fecharFuso() {
+    if (!tzBusy) setTzOpen(false);
+  }
+
+  async function salvarFuso() {
+    setTzError(null);
+    setTzBusy(true);
+    try {
+      const res = await fetch("/api/timezone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timezone: tz }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Não foi possível salvar o fuso.");
+      }
+      setTzOpen(false);
+      router.refresh();
+    } catch (err) {
+      setTzError(
+        err instanceof Error ? err.message : "Não foi possível salvar o fuso."
+      );
+    } finally {
+      setTzBusy(false);
+    }
+  }
 
   async function toggleNotificacoes() {
     setMenuOpen(false);
@@ -253,6 +370,22 @@ export function ProfileHeader({
                   Instalar app
                 </button>
               )}
+              <button
+                type="button"
+                onClick={abrirFuso}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-foreground/5"
+              >
+                <Globe className="h-4 w-4" />
+                Fuso horário
+              </button>
+              <button
+                type="button"
+                onClick={abrirTrocaSenha}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-foreground/5"
+              >
+                <KeyRound className="h-4 w-4" />
+                Mudar senha
+              </button>
               <div className="border-t border-black/10 dark:border-white/15" />
               <form action={logout}>
                 <button
@@ -292,6 +425,147 @@ export function ProfileHeader({
             ? "No Safari: toque em Compartilhar e depois em “Adicionar à Tela de Início”."
             : "Abra o menu do navegador e escolha “Instalar app” / “Adicionar à tela inicial”."}
         </button>
+      )}
+
+      {pwOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Fechar"
+            onClick={fecharTrocaSenha}
+            className="animate-overlay-in absolute inset-0 bg-black/50"
+          />
+          <div className="animate-card-in relative z-10 w-full max-w-md rounded-3xl bg-background p-6 text-left shadow-xl">
+            <div className="mb-1 flex items-start justify-between gap-2">
+              <p className="text-base font-semibold">Mudar senha</p>
+              <button
+                onClick={fecharTrocaSenha}
+                aria-label="Fechar"
+                className="flex h-8 w-8 items-center justify-center rounded-lg opacity-60 hover:opacity-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm opacity-60">
+              Digite a nova senha duas vezes. Você será desconectado para entrar
+              com a nova senha.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1.5 text-sm font-medium">
+                Nova senha
+                <input
+                  type="password"
+                  value={pw1}
+                  onChange={(e) => setPw1(e.target.value)}
+                  autoComplete="new-password"
+                  className="rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none focus:border-foreground dark:border-white/15"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-medium">
+                Confirmar nova senha
+                <input
+                  type="password"
+                  value={pw2}
+                  onChange={(e) => setPw2(e.target.value)}
+                  autoComplete="new-password"
+                  className="rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none focus:border-foreground dark:border-white/15"
+                />
+              </label>
+            </div>
+
+            {pwError && <p className="mt-3 text-sm text-red-600">{pwError}</p>}
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={fecharTrocaSenha}
+                disabled={pwBusy}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-black/10 px-4 py-3 font-medium disabled:opacity-60 dark:border-white/15"
+              >
+                <X className="h-5 w-5" />
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={salvarSenha}
+                disabled={pwBusy}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-3 font-medium text-background disabled:opacity-60"
+              >
+                <Check className="h-5 w-5" />
+                {pwBusy ? "Salvando..." : "Trocar senha"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tzOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Fechar"
+            onClick={fecharFuso}
+            className="animate-overlay-in absolute inset-0 bg-black/50"
+          />
+          <div className="animate-card-in relative z-10 w-full max-w-md rounded-3xl bg-background p-6 text-left shadow-xl">
+            <div className="mb-1 flex items-start justify-between gap-2">
+              <p className="text-base font-semibold">Fuso horário</p>
+              <button
+                onClick={fecharFuso}
+                aria-label="Fechar"
+                className="flex h-8 w-8 items-center justify-center rounded-lg opacity-60 hover:opacity-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm opacity-60">
+              Seus registros passam a ser exibidos e agrupados por dia neste
+              fuso.
+            </p>
+
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Fuso
+              <select
+                value={tz}
+                onChange={(e) => setTz(e.target.value)}
+                className="rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none focus:border-foreground dark:border-white/15"
+              >
+                {TIMEZONES.some((t) => t.value === tz) ? null : (
+                  <option value={tz}>{tz}</option>
+                )}
+                {TIMEZONES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {tzError && <p className="mt-3 text-sm text-red-600">{tzError}</p>}
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={fecharFuso}
+                disabled={tzBusy}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-black/10 px-4 py-3 font-medium disabled:opacity-60 dark:border-white/15"
+              >
+                <X className="h-5 w-5" />
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={salvarFuso}
+                disabled={tzBusy}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-3 font-medium text-background disabled:opacity-60"
+              >
+                <Check className="h-5 w-5" />
+                {tzBusy ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
