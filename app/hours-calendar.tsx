@@ -50,14 +50,18 @@ export function HoursCalendar({
   const [selected, setSelected] = useState<number | null>(null);
   const info = selected != null ? days[selected] : undefined;
 
-  // Contagem de modalidade no mês.
+  // Contagem de modalidade no mês + dias com horas (para a média).
   let homeDays = 0;
   let presDays = 0;
+  let workedDays = 0;
   for (const key in days) {
     const mod = days[key].modalidade;
     if (mod === "home_office") homeDays++;
     else if (mod === "presencial") presDays++;
+    if (days[key].minutes > 0) workedDays++;
   }
+  // Média diária: total de horas ÷ dias com horas registradas. Calculada na hora.
+  const avgMinutes = workedDays > 0 ? Math.round(totalMinutes / workedDays) : 0;
 
   const dateLabel =
     selected != null
@@ -75,9 +79,18 @@ export function HoursCalendar({
           <Clock className="h-4 w-4" />
           Horas e modalidade por dia
         </span>
-        <span className="text-sm">
-          Total: <span className="font-semibold">{fmtDur(totalMinutes)}</span>
-        </span>
+        <div className="flex flex-col items-end text-sm">
+          <span>
+            Total: <span className="font-semibold">{fmtDur(totalMinutes)}</span>
+          </span>
+          <span
+            className="opacity-70"
+            title="Total de horas ÷ dias com horas registradas"
+          >
+            Média/dia:{" "}
+            <span className="font-semibold">{fmtDur(avgMinutes)}</span>
+          </span>
+        </div>
       </div>
 
       {/* Descrição geral do que é o quê */}
