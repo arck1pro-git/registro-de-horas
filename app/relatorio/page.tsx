@@ -2,8 +2,10 @@ import { auth } from "@/auth";
 import {
   getRegistrosByUser,
   getModalidadesByUser,
+  getUserTimezone,
   type Registro,
 } from "@/lib/data";
+import { dateKey } from "@/lib/tz";
 import { HoursCalendar, type DayInfo } from "@/app/hours-calendar";
 
 /** Minutos trabalhados no dia, pareando entrada → saída em ordem. */
@@ -35,10 +37,11 @@ export default async function Relatorio() {
   const user = session?.user;
   const registros = user?.id ? await getRegistrosByUser(user.id) : [];
   const modalidades = user?.id ? await getModalidadesByUser(user.id) : [];
+  const tz = user?.id ? await getUserTimezone(user.id) : undefined;
 
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  // Mês de referência = mês de "hoje" NO FUSO DO USUÁRIO (não no fuso do servidor).
+  const [year, monthNum] = dateKey(new Date(), tz).split("-").map(Number);
+  const month = monthNum - 1; // 0-based
   const cells = buildCells(year, month);
 
   const monthLabel = new Date(year, month, 1).toLocaleDateString("pt-BR", {
@@ -47,15 +50,15 @@ export default async function Relatorio() {
   });
   const monthTitle = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
-  // Registros de ponto do mês agrupados por dia.
+  // Registros de ponto do mês agrupados por dia, no fuso do usuário — assim uma
+  // batida às 21:32 (que em UTC cai no dia seguinte) fica no dia certo.
   const byDay = new Map<number, Registro[]>();
   for (const r of registros) {
-    const d = new Date(r.timestamp);
-    if (d.getFullYear() !== year || d.getMonth() !== month) continue;
-    const day = d.getDate();
-    const list = byDay.get(day) ?? [];
+    const [y, mo, d] = dateKey(r.timestamp, tz).split("-").map(Number);
+    if (y !== year || mo - 1 !== month) continue;
+    const list = byDay.get(d) ?? [];
     list.push(r);
-    byDay.set(day, list);
+    byDay.set(d, list);
   }
 
   // Modalidade do mês por dia.
@@ -95,6 +98,7 @@ export default async function Relatorio() {
         totalMinutes={totalMinutes}
         year={year}
         month={month}
+        tz={tz}
       />
     </main>
   );

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Clock, X, LogIn, LogOut, House, Building2 } from "lucide-react";
+import { formatTime } from "@/lib/tz";
 
 type Punch = { tipo: "in" | "out"; timestamp: string };
 export type Modalidade = "home_office" | "presencial";
@@ -21,12 +22,6 @@ function fmtDur(min: number) {
   return `${m}m`;
 }
 
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 // Cor de fundo da célula conforme a modalidade (ou neutro só com horas).
 function cellTint(mod: Modalidade | null, hasHours: boolean) {
@@ -42,12 +37,15 @@ export function HoursCalendar({
   totalMinutes,
   year,
   month,
+  tz,
 }: {
   cells: (number | null)[];
   days: Record<number, DayInfo>;
   totalMinutes: number;
   year: number;
   month: number;
+  /** Fuso do usuário (IANA). Omitido = padrão São Paulo. */
+  tz?: string;
 }) {
   const [selected, setSelected] = useState<number | null>(null);
   const info = selected != null ? days[selected] : undefined;
@@ -205,7 +203,7 @@ export function HoursCalendar({
                         {isIn ? "Entrada" : "Saída"}
                       </span>
                       <span className="text-sm opacity-60">
-                        {fmtTime(p.timestamp)}
+                        {formatTime(p.timestamp, tz)}
                       </span>
                     </li>
                   );
