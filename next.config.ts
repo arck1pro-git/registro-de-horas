@@ -10,8 +10,9 @@ const nextConfig: NextConfig = {
     "192.168.3.*",
     "192.168.56.*",
   ],
-  // exceljs usa APIs de Node; não empacotar no bundle de Server Components.
-  serverExternalPackages: ["exceljs"],
+  // pdfkit lê arquivos de fonte (.afm) via fs; mantê-lo fora do bundle para os
+  // assets serem resolvidos a partir de node_modules em runtime.
+  serverExternalPackages: ["pdfkit"],
 };
 
 export default nextConfig;

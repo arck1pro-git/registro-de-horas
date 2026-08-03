@@ -160,7 +160,7 @@ export default async function Admin({
                   className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
                 >
                   <Download className="h-4 w-4" />
-                  Exportar Excel
+                  Exportar PDF
                 </a>
               </>
             )}
